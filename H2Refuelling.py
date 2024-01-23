@@ -15,6 +15,9 @@ from scipy.optimize import fsolve
 #import chemicals as cls #chemical properties
 #import ht #heat transfer library
 
+#%%
+#Node Map
+
 
 # Python HRS - https://www.youtube.com/watch?v=3g301ybQKos
 
