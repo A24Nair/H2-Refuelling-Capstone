@@ -20,6 +20,8 @@ from scipy.optimize import fsolve
 matrix_map = pd.read_excel("D:\\Uni Stuff\Capstone\Travel Matrix.xlsx")
 print(matrix_map)
 
+#dictionary setup
+
 # Python HRS - https://www.youtube.com/watch?v=3g301ybQKos
 
 #inputs
