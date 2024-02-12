@@ -1,0 +1,80 @@
+#%%
+import numpy as np
+import pandas as pd
+import requests
+import json
+import random
+
+# AN Bing Maps API key
+bing_maps_api_key = "AkG58SoxLujRYGeH30ePGMT_9gz3aQ6UCiGBn3EeZ5BO6d-2OYlos9L1yH0gbopC"
+excel_file_path = r'Travel Matrix.xlsx'
+#%%
+def load_dfs():
+    with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a') as writer:
+         main_excel = pd.read_excel(writer,sheet_name=None)
+    addr_df = main_excel["Addresses"]
+    service_dir_df = main_excel["Service-Directions"]
+    # df[["Latitude", "Longitude"]] = df.apply(find_location, axis=1)
+    service_dir_df = pd.read_excel(excel_file_path,sheet_name="Service-Directions",usecols="A:U",nrows=21)
+    # addr_df[["Latitude", "Longitude"]] = addr_df.apply(find_location, axis=1)
+    # print(addr_df)
+    # print(service_dir_df)
+    return main_excel
+#%%
+def find_travel_time_distance(start_lat,start_long,end_lat,end_long):
+	start_loc = str(start_lat) + "," + str(start_long)
+	end_loc = str(end_lat) + "," + str(end_long)
+	print(start_loc)
+	newurl = f'http://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins={start_loc}&destinations={end_loc}&travelMode=driving&key={bing_maps_api_key}'
+	response = requests.get(newurl)
+	data = response.json()
+	travel_distance = data['resourceSets'][0]['resources'][0]['results'][0]['travelDistance']
+	travel_time = data['resourceSets'][0]['resources'][0]['results'][0]['travelDuration']
+	return [travel_distance,travel_time]
+#%%
+def find_location(row):
+    base_url = "http://dev.virtualearth.net/REST/v1/Locations"
+    params = {
+        "key": bing_maps_api_key,
+        "countryRegion": row["Country Code"],
+        "postalCode": row["Postal Code"],
+    }
+    response = requests.get(base_url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data["resourceSets"][0]["estimatedTotal"] > 0:
+            location = data["resourceSets"][0]["resources"][0]["point"]["coordinates"]
+            latitude, longitude = location
+            row["Latitude"], row["Longitude"] = latitude, longitude
+            # Return latitude and longitude
+            return row #pd.Series({"Latitude": latitude, "Longitude": longitude})
+        else:
+            return row #pd.Series({"Latitude": None, "Longitude": None})
+    else:
+        return row #pd.Series({"Latitude": None, "Longitude": None})
+#%%
+def find_coord_all_addr():
+    '''Use only when new address is added to Excel'''
+    try:
+        with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
+            addr_df = pd.read_excel(writer,sheet_name="Addresses")
+            #addr_df[["Latitude", "Longitude"]] = addr_df.apply(find_location, axis=1)
+            addr_df = addr_df.apply(find_location, axis=1)
+            addr_df.to_excel(writer,sheet_name="Addresses",index=False)
+    except PermissionError:
+        print(f"Error: Permission denied")
+        exit()
+    except Exception as e:
+        print(f"Error: {e}")
+        exit()
+    return None
+#%%
+if __name__ == "__main__":
+    find_coord_all_addr()
+#%%
+def create_distance_matrix(main_excel):
+    addr_df = main_excel["Addresses"]
+    addr_df["Combined"] = addr_df['Longitude'].astype(str) + addr_df['Latitude']
+    addr_df["Combined"].to_list()
+    return
+# %%
