@@ -7,18 +7,10 @@ import random
 
 # AN Bing Maps API key
 bing_maps_api_key = "AkG58SoxLujRYGeH30ePGMT_9gz3aQ6UCiGBn3EeZ5BO6d-2OYlos9L1yH0gbopC"
-excel_file_path = r'Travel Matrix.xlsx'
+travel_matrix_excel_file_path = r'Travel Matrix.xlsx'
 #%%
-def load_dfs():
-    with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a') as writer:
-         main_excel = pd.read_excel(writer,sheet_name=None)
-    addr_df = main_excel["Addresses"]
-    service_dir_df = main_excel["Service-Directions"]
-    # df[["Latitude", "Longitude"]] = df.apply(find_location, axis=1)
-    service_dir_df = pd.read_excel(excel_file_path,sheet_name="Service-Directions",usecols="A:U",nrows=21)
-    # addr_df[["Latitude", "Longitude"]] = addr_df.apply(find_location, axis=1)
-    # print(addr_df)
-    # print(service_dir_df)
+def load_dfs(excel_file_path):
+    main_excel = pd.read_excel(excel_file_path,sheet_name=None)
     return main_excel
 #%%
 def find_travel_time_distance(start_lat,start_long,end_lat,end_long):
@@ -53,7 +45,7 @@ def find_location(row):
     else:
         return row #pd.Series({"Latitude": None, "Longitude": None})
 #%%
-def find_coord_all_addr():
+def find_coord_all_addr(excel_file_path):
     '''Use only when new address is added to Excel'''
     try:
         with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
@@ -69,12 +61,16 @@ def find_coord_all_addr():
         exit()
     return None
 #%%
-if __name__ == "__main__":
-    find_coord_all_addr()
-#%%
 def create_distance_matrix(main_excel):
     addr_df = main_excel["Addresses"]
     addr_df["Combined"] = addr_df['Longitude'].astype(str) + addr_df['Latitude']
     addr_df["Combined"].to_list()
     return
+#%%
+if __name__ == "__main__":
+    travel_matrix_df = load_dfs(travel_matrix_excel_file_path)
+    print("hello")
+
+
+
 # %%
