@@ -10,6 +10,7 @@ bing_maps_api_key = "AkG58SoxLujRYGeH30ePGMT_9gz3aQ6UCiGBn3EeZ5BO6d-2OYlos9L1yH0
 travel_matrix_excel_file_path = r'Travel Matrix.xlsx'
 #%%
 def load_dfs(excel_file_path):
+    '''Returns distance matrix Excel as a dictionary with keys as the names of individual sheets and values as dataframes of the respective keys'''
     main_excel = pd.read_excel(excel_file_path,sheet_name=None)
     return main_excel
 #%%
@@ -46,7 +47,7 @@ def find_location(row):
         return row #pd.Series({"Latitude": None, "Longitude": None})
 #%%
 def find_coord_all_addr(excel_file_path):
-    '''Use only when new address is added to Excel'''
+    '''Use to find coordinates only when new address is added to Addresses sheet in Travel Matrix Excel. Overwrites the excel sheet in Addresses to add coordinates for each node'''
     try:
         with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
             addr_df = pd.read_excel(writer,sheet_name="Addresses")
@@ -61,16 +62,28 @@ def find_coord_all_addr(excel_file_path):
         exit()
     return None
 #%%
+
+#%%
 def create_distance_matrix(main_excel):
-    addr_df = main_excel["Addresses"]
-    addr_df["Combined"] = addr_df['Longitude'].astype(str) + addr_df['Latitude']
-    addr_df["Combined"].to_list()
-    return
+    '''Create one time static distance matrix Use only when new address/new node is added to Addresses sheet in Travel Matrix Excel file. Overwrites the excel sheet and adds a new sheet named distance matrix. Does not return anything.'''
+    fuel_stat_loc_df, service_dir_df = main_excel["Addresses"], main_excel["Addresses"]
+    for origin_node in fuel_stat_loc_df["Node"].values:
+        for dest_node in fuel_stat_loc_df["Node"].values:
+            pass
+
+    return None
+#%%
+def distance_between_nodes(node1,node2,main_excel_df):
+    '''
+    REPLACES the following function: find_travel_time_distance(start_lat,start_long,end_lat,end_long)
+
+    Used to find distance between any 2 nodes using Hwy 401 waypoints. It will determine whether travel is eastbound or westbound. It will find compatible fuel stations between origin and destination coordinates. Coordinates of any compatible fuel stations will be waypoints for Bing Maps API truck route to use highway 401 as preference when highway 401 is available (using routeAttributes).
+
+    It will RETURN a list/tuple: (distance as FLOAT in km, time)'''
+    return None
 #%%
 if __name__ == "__main__":
     travel_matrix_df = load_dfs(travel_matrix_excel_file_path)
     print("hello")
-
-
 
 # %%
