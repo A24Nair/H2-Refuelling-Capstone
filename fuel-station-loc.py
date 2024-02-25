@@ -59,6 +59,7 @@ def system_wide_sim(tm):
     probabilities = np.array([0.1,0.1,0.07,0.05,0.05,0.13,0.3,0.2])
     
     for i in truck_num:
+        interp_rnge = np.array([])
         start_dest[i-1,0] *= random.randint(13,tm.iloc[-1,0])
         end_node = np.random.choice(dest_node, p = probabilities)
         while end_node == start_dest[i-1,0]:
@@ -66,9 +67,21 @@ def system_wide_sim(tm):
         end_dest[i-1,0] *= end_node
         fuel[i-1,0] = random.uniform(30,60)
         rnge[i-1,0] = 700 * fuel[i-1,0]/60
+        '''
+        if rnge[i-1,0] - distance_between_nodes(start_dest[i-1,0],end_dest[i-1,0],main_excel_df) <= 700*0.25:
+            inter_stat = tm.iloc[start_dest[i-1,0]-1,start_dest[i-1,0]] == tm.iloc[start_dest[i-1,0],end_dest[i-1,0]] #returns a row or true and false to see which stations are compatible
+            col_ind = np.where(inter_stat)[1]
+            col_ind = col_ind[con_ind < 12] #filters for the compatable refuelling stations
+            for j in col_ind:
+                rem_rnge = rnge[i-1,0] - distance_between_nodes(start_dest[i-1,0],j,main_excel_df)
+                interp_rnge = np.append(interp_rnge, rem_rnge)
+            interp_stn = col_ind[np.abs(interp_rnge - (700*25)).argmin()] #obtains the intermittent station number
+        intermitten[i-1] = interp_stn
+        '''
+        
     start_dest[150,0] = start_dest[151,0] = start_dest[152,0] = 3
     start_dest[153,0] = start_dest[154,0] = start_dest[155,0] = 8
-    
+      
     combined_matrix = np.vstack((truck_num,tube_num))
     combined_matrix = np.hstack((combined_matrix,start_dest,end_dest,intermitten,rnge,fuel))
     combined_matrix = np.vstack((title,combined_matrix))
@@ -76,9 +89,11 @@ def system_wide_sim(tm):
     
     return combined_matrix
 
+def sim_by_time(sys_all):
+
 if __name__ == "__main__":
     excel_file_path = "Travel Matrix.xlsx" # Enter filepath here
-    df = pd.read_excel(excel_file_path,sheet_name="Sheet2 (2)",usecols="A:G",nrows=22) # Missing: build logic for last row with non empty postal code
+    df = pd.read_excel(excel_file_path,sheet_name="Addresses",usecols="A:G",nrows=22) # Missing: build logic for last row with non empty postal code
     # Apply the function
     df[["Latitude", "Longitude"]] = df.apply(find_location, axis=1)
     #print(df)
