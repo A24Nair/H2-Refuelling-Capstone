@@ -60,6 +60,7 @@ def system_wide_sim(tm):
     
     for i in truck_num:
         interp_rnge = np.array([])
+        interp_stn = 0
         start_dest[i-1,0] *= random.randint(13,tm.iloc[-1,0])
         end_node = np.random.choice(dest_node, p = probabilities)
         while end_node == start_dest[i-1,0]:
@@ -67,7 +68,7 @@ def system_wide_sim(tm):
         end_dest[i-1,0] *= end_node
         fuel[i-1,0] = random.uniform(30,60)
         rnge[i-1,0] = 700 * fuel[i-1,0]/60
-        '''
+        ''' -> awaiting function for distance_between_nodes to work
         if rnge[i-1,0] - distance_between_nodes(start_dest[i-1,0],end_dest[i-1,0],main_excel_df) <= 700*0.25:
             inter_stat = tm.iloc[start_dest[i-1,0]-1,start_dest[i-1,0]] == tm.iloc[start_dest[i-1,0],end_dest[i-1,0]] #returns a row or true and false to see which stations are compatible
             col_ind = np.where(inter_stat)[1]
@@ -78,19 +79,32 @@ def system_wide_sim(tm):
             interp_stn = col_ind[np.abs(interp_rnge - (700*25)).argmin()] #obtains the intermittent station number
         intermitten[i-1] = interp_stn
         '''
+        interp_stn = 0
         
-    start_dest[150,0] = start_dest[151,0] = start_dest[152,0] = 3
+    start_dest[150,0] = start_dest[151,0] = start_dest[152,0] = 3 #this could lead to trouble later
     start_dest[153,0] = start_dest[154,0] = start_dest[155,0] = 8
       
     combined_matrix = np.vstack((truck_num,tube_num))
     combined_matrix = np.hstack((combined_matrix,start_dest,end_dest,intermitten,rnge,fuel))
     combined_matrix = np.vstack((title,combined_matrix))
     combined_matrix = pd.DataFrame(combined_matrix)
+    combined_matrix.columns = combined_matrix.iloc[0]
+    combined_matrix = combined_matrix.drop(0)
     
     return combined_matrix
 
-def sim_by_time(sys_all):
-
+def sim_by_time(sys_all): #takes the entire starting matrix to start simulation
+    stat_mtrx = np.arange(1,157)
+    plc_hldr = np.array([])
+    for i in range (1,13):
+        plc_hldr = np.append(plc_hldr, "Station " + i)
+    stat_mtrx = np.hstack((stat_mtrx,plc_hldr)) #establishes title row of the simulation
+    stat_mtrx = np.insert(stat_mtrx, 0, "Time")
+    
+    times_range = pd.date_range(start="7:00", end="21:00", freq='10T').T
+    formatted_times = times_range.strftime('%H:%M')
+    travel_dist = 
+    
 if __name__ == "__main__":
     excel_file_path = "Travel Matrix.xlsx" # Enter filepath here
     df = pd.read_excel(excel_file_path,sheet_name="Addresses",usecols="A:G",nrows=22) # Missing: build logic for last row with non empty postal code
