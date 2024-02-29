@@ -174,9 +174,12 @@ def sim_by_time(sys_all,tm): #takes the entire starting matrix to start simulati
                 row_data = sys_all.iloc[j] #go to the jth row of sys_all -> truck info
                 row_data,init_stn = new_node(row_data,tm,init_stn)#put into new node function
                 sys_all.iloc[j] = row_data
-                #take output and take the new remaining time into the new_time slot
-        
-    return None
+                new_time[j] = row_data["Remaining Time"]
+        #take output and take the new remaining time into the new_time slot
+        ro = np.hstack(i,new_time,init_stn)
+        stat_mtrx.loc[len(stat_mtrx)] = ro
+        old_time = new_time
+    return stat_mtrx,sys_all
     
 if __name__ == "__main__":
     excel_file_path = "Travel Matrix.xlsx" # Enter filepath here
