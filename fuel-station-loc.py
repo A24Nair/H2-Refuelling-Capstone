@@ -192,3 +192,10 @@ if __name__ == "__main__":
     sys = system_wide_sim(travel_matrix)
     sys.to_excel("tester.xlsx",index=False) #adjust file path here
     sim = sim_by_time(sys,travel_matrix)
+    
+'''
+remaining items in this code:
+    >>Include the distance between nodes function
+    >>Finalize on time measurements (seconds, minutes, hours)
+    >>Using distance between nodes function to find time
+'''
