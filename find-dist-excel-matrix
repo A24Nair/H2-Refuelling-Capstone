@@ -7,7 +7,7 @@ import random
 
 # AN Bing Maps API key
 bing_maps_api_key = "AkG58SoxLujRYGeH30ePGMT_9gz3aQ6UCiGBn3EeZ5BO6d-2OYlos9L1yH0gbopC"
-travel_matrix_excel_file_path = r'Travel Matrix.xlsx'
+travel_matrix_excel_file_path = r'Travel Matrix - Copy.xlsx'
 #%%
 def load_dfs(excel_file_path):
     '''Returns distance matrix Excel as a dictionary with keys as the names of individual sheets and values as dataframes of the respective keys'''
@@ -67,7 +67,7 @@ def create_distance_matrix(travel_matrix_excel_file_path):
         find_driving_time = 1 # Used to create time matrix based on static distances
         for origin_node in service_dir_df.columns.values:
             for dest_node in service_dir_df.columns.values:
-                dist,driv_time = distance_between_nodes(origin_node,dest_node,fuel_stat_loc_df,find_driving_time) 
+                dist,driv_time = distance_between_nodes(origin_node,dest_node,fuel_stat_loc_df,service_dir_df,find_driving_time) 
                 matrix_distances[origin_node-1,dest_node-1] = dist
                 matrix_driv_times[origin_node-1,dest_node-1] = driv_time
             
@@ -77,7 +77,7 @@ def create_distance_matrix(travel_matrix_excel_file_path):
     return None
 
 #%%
-def distance_between_nodes(node1,node2,fuel_stat_loc_df,driving_time=None):
+def distance_between_nodes(node1,node2,fuel_stat_loc_df,service_dir_df,driving_time=None):
     '''
     REPLACES the following function: find_travel_time_distance(start_lat,start_long,end_lat,end_long)
 
@@ -103,8 +103,25 @@ def distance_between_nodes(node1,node2,fuel_stat_loc_df,driving_time=None):
         "distanceUnit": "km"
     }
         
-        # Need to create logic for selecting and filtering waypoints for highway 401
+        # Logic for selecting and filtering waypoints for highway 401
+        # if node1 >=13 and node2 >=14:
+        #     travelDirection = service_dir_df.at[node1,node2]
+        #     if travelDirection == 'W':
+        #         # Filter for fuel stations that service westbound and between node 1 and node 2
+        #         compatible_stations_df = fuel_stat_loc_df.loc[(fuel_stat_loc_df['Longitude'] <= fuel_stat_loc_df.at[node1,'Longitude']) & (fuel_stat_loc_df['Longitude'] >= fuel_stat_loc_df.at[node2,'Longitude']) & (fuel_stat_loc_df['Service'] == travelDirection)]
+        #         if len(compatible_stations_df)>0:
+        #             combined_coord = compatible_stations_df['Latitude'].astype(str)+','+compatible_stations_df['Longitude'].astype(str)
+        #             for index, coord in enumerate(combined_coord.to_numpy()):
+        #                 params[f"vwp.{index+2}"] = coord
         
+        #     else: # travelDirection is E (East)
+        #         # Filter for fuel stations that service eastbound and between node 1 and node 2
+        #         compatible_stations_df = fuel_stat_loc_df.loc[(fuel_stat_loc_df['Longitude'] >= fuel_stat_loc_df.at[node1,'Longitude']) & (fuel_stat_loc_df['Longitude'] <= fuel_stat_loc_df.at[node2,'Longitude']) & (fuel_stat_loc_df['Service'] == travelDirection)]
+        #         if len(compatible_stations_df)>0:
+        #             combined_coord = compatible_stations_df['Latitude'].astype(str)+','+compatible_stations_df['Longitude'].astype(str)
+        #             for index, coord in enumerate(combined_coord.to_numpy()):
+        #                 params[f"vwp.{index+2}"] = coord
+
         response = requests.get(newurl, params=params)
         data = response.json()
         travel_distance = data['resourceSets'][0]['resources'][0]['travelDistance']
