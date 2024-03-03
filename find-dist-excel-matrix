@@ -14,17 +14,6 @@ def load_dfs(excel_file_path):
     main_excel = pd.read_excel(excel_file_path,sheet_name=None)
     return main_excel
 #%%
-def find_travel_time_distance(start_lat,start_long,end_lat,end_long):
-	start_loc = str(start_lat) + "," + str(start_long)
-	end_loc = str(end_lat) + "," + str(end_long)
-	print(start_loc)
-	newurl = f'http://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins={start_loc}&destinations={end_loc}&travelMode=driving&key={bing_maps_api_key}'
-	response = requests.get(newurl)
-	data = response.json()
-	travel_distance = data['resourceSets'][0]['resources'][0]['results'][0]['travelDistance']
-	travel_time = data['resourceSets'][0]['resources'][0]['results'][0]['travelDuration']
-	return [travel_distance,travel_time]
-#%%
 def find_location(row):
     base_url = "http://dev.virtualearth.net/REST/v1/Locations"
     params = {
@@ -38,20 +27,18 @@ def find_location(row):
         if data["resourceSets"][0]["estimatedTotal"] > 0:
             location = data["resourceSets"][0]["resources"][0]["point"]["coordinates"]
             latitude, longitude = location
-            row["Latitude"], row["Longitude"] = latitude, longitude
-            # Return latitude and longitude
-            return row #pd.Series({"Latitude": latitude, "Longitude": longitude})
+            row["Latitude"], row["Longitude"] = latitude, longitude # Return latitude and longitude
+            return row
         else:
-            return row #pd.Series({"Latitude": None, "Longitude": None})
+            return row
     else:
-        return row #pd.Series({"Latitude": None, "Longitude": None})
+        return row
 #%%
 def find_coord_all_addr(excel_file_path):
     '''Use to find coordinates only when new address is added to Addresses sheet in Travel Matrix Excel. Overwrites the excel sheet in Addresses to add coordinates for each node'''
     try:
         with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
             addr_df = pd.read_excel(writer,sheet_name="Addresses")
-            #addr_df[["Latitude", "Longitude"]] = addr_df.apply(find_location, axis=1)
             addr_df = addr_df.apply(find_location, axis=1)
             addr_df.to_excel(writer,sheet_name="Addresses",index=False)
     except PermissionError:
@@ -61,29 +48,73 @@ def find_coord_all_addr(excel_file_path):
         print(f"Error: {e}")
         exit()
     return None
-#%%
 
 #%%
-def create_distance_matrix(main_excel):
+def create_distance_matrix(travel_matrix_excel_file_path):
     '''Create one time static distance matrix Use only when new address/new node is added to Addresses sheet in Travel Matrix Excel file. Overwrites the excel sheet and adds a new sheet named distance matrix. Does not return anything.'''
-    fuel_stat_loc_df, service_dir_df = main_excel["Addresses"], main_excel["Addresses"]
-    for origin_node in fuel_stat_loc_df["Node"].values:
-        for dest_node in fuel_stat_loc_df["Node"].values:
-            pass
+    with pd.ExcelWriter(travel_matrix_excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
+        fuel_stat_loc_df, service_dir_df = pd.read_excel(writer,sheet_name="Addresses"), pd.read_excel(writer,sheet_name="Service-Directions")
+        print(service_dir_df)
+        service_dir_df = service_dir_df.set_index(service_dir_df.iloc[:,0]).iloc[:,1:]
+        fuel_stat_loc_df = fuel_stat_loc_df.set_index(fuel_stat_loc_df.iloc[:,0])
+        # print(service_dir_df)
+        print(fuel_stat_loc_df)
+        # print(fuel_stat_loc_df.at[1,'Longitude'])
+        # print(fuel_stat_loc_df.at[1,'Latitude'])
+        total_nodes = len(service_dir_df.columns.values)
+        matrix_distances = np.zeros((total_nodes,total_nodes))
+        matrix_driv_times = np.zeros((total_nodes,total_nodes))
+        find_driving_time = 1 # Used to create time matrix based on static distances
+        for origin_node in service_dir_df.columns.values:
+            for dest_node in service_dir_df.columns.values:
+                dist,driv_time = distance_between_nodes(origin_node,dest_node,fuel_stat_loc_df,find_driving_time) 
+                matrix_distances[origin_node-1,dest_node-1] = dist
+                matrix_driv_times[origin_node-1,dest_node-1] = driv_time
+            
+        pd.DataFrame(matrix_distances,index = fuel_stat_loc_df["Node"].values,columns = fuel_stat_loc_df["Node"].values).to_excel(writer,sheet_name="Distance-Matrix",index=True)
+        pd.DataFrame(matrix_driv_times,index = fuel_stat_loc_df["Node"].values,columns = fuel_stat_loc_df["Node"].values).to_excel(writer,sheet_name="Driving-Time-Matrix",index=True)
 
     return None
+
 #%%
-def distance_between_nodes(node1,node2,main_excel_df):
+def distance_between_nodes(node1,node2,fuel_stat_loc_df,driving_time=None):
     '''
     REPLACES the following function: find_travel_time_distance(start_lat,start_long,end_lat,end_long)
 
     Used to find distance between any 2 nodes using Hwy 401 waypoints. It will determine whether travel is eastbound or westbound. It will find compatible fuel stations between origin and destination coordinates. Coordinates of any compatible fuel stations will be waypoints for Bing Maps API truck route to use highway 401 as preference when highway 401 is available (using routeAttributes).
 
-    It will RETURN a list/tuple: (distance as FLOAT in km, time)'''
-    return None
+    It will RETURN distance as FLOAT in Kilometers, time as integer in Seconds if driving_time is not None'''
+    start_loc = str(fuel_stat_loc_df.at[node1,'Latitude']) + ',' + str(fuel_stat_loc_df.at[node1,'Longitude'])
+    end_loc = str(fuel_stat_loc_df.at[node2,'Latitude']) + ',' + str(fuel_stat_loc_df.at[node2,'Longitude'])
+    if start_loc==end_loc or node1==node2:
+        travel_distance = 0
+        travel_time = 0
+        if driving_time:
+            return travel_distance,travel_time
+        else:
+            return travel_distance
+    else:
+    
+        newurl = f'https://dev.virtualearth.net/REST/v1/Routes/Truck'
+        params = {
+        "key": bing_maps_api_key,
+        "wp.0": start_loc,
+        "wp.1": end_loc,
+        "distanceUnit": "km"
+    }
+        
+        # Need to create logic for selecting and filtering waypoints for highway 401
+        
+        response = requests.get(newurl, params=params)
+        data = response.json()
+        travel_distance = data['resourceSets'][0]['resources'][0]['travelDistance']
+        travel_time = data['resourceSets'][0]['resources'][0]['travelDurationTraffic']
+
+        if driving_time:
+            return travel_distance,travel_time
+        else:
+            return travel_distance
 #%%
 if __name__ == "__main__":
     travel_matrix_df = load_dfs(travel_matrix_excel_file_path)
-    print("hello")
-
-# %%
+    create_distance_matrix(travel_matrix_excel_file_path)
