@@ -45,26 +45,36 @@ def find_travel_time_distance(start_lat,start_long,end_lat,end_long):
 	return [travel_distance,travel_time]
 
 def system_wide_sim(tm):
-    truck_num = np.arange(0,150) #generates 150 numbers
+    title = np.array(["Truck #","Starting Node","Ending Node","Intermittent Stop","Remaining Range","Remaining Fuel"])
+    truck_num = np.arange(1,151)
     truck_num = np.array(truck_num).reshape(150,1)
     tube_num = np.array([401,402,403,404,405,406])
     tube_num = np.array(tube_num).reshape(6,1)
-    start_dest = end_dest = fuel = rnge = np.ones((156,1))
+    start_dest = np.ones((156,1))
+    end_dest = np.ones((156,1))
+    fuel = np.ones((156,1))
+    rnge = np.ones((156,1))
+    intermitten = np.zeros((156,1))
     dest_node = np.array([tm.iloc[12:,0]]).flatten().tolist()
-    probabilities = np.array([0.1,0.1,0.1,0.05,0.05,0.1,0.3,0.2])
+    probabilities = np.array([0.1,0.1,0.07,0.05,0.05,0.13,0.3,0.2])
     
     for i in truck_num:
-        start_dest[i,0] *= random.randint(13,tm.iloc[-1,0])
+        start_dest[i-1,0] *= random.randint(13,tm.iloc[-1,0])
         end_node = np.random.choice(dest_node, p = probabilities)
-        while end_node == start_dest[i,0]:
+        while end_node == start_dest[i-1,0]:
             end_node = np.random.choice(dest_node, p = probabilities)
-        end_dest[i,0] *= end_node
-        fuel[i,0] = random.uniform(30,60)
-        rnge[i,0] = 700 * fuel[i,0]/60
+        end_dest[i-1,0] *= end_node
+        fuel[i-1,0] = random.uniform(30,60)
+        rnge[i-1,0] = 700 * fuel[i-1,0]/60
     start_dest[150,0] = start_dest[151,0] = start_dest[152,0] = 3
     start_dest[153,0] = start_dest[154,0] = start_dest[155,0] = 8
     
-    return None
+    combined_matrix = np.vstack((truck_num,tube_num))
+    combined_matrix = np.hstack((combined_matrix,start_dest,end_dest,intermitten,rnge,fuel))
+    combined_matrix = np.vstack((title,combined_matrix))
+    combined_matrix = pd.DataFrame(combined_matrix)
+    
+    return combined_matrix
 
 if __name__ == "__main__":
     excel_file_path = "Travel Matrix.xlsx" # Enter filepath here
@@ -75,3 +85,4 @@ if __name__ == "__main__":
     tester = find_travel_time_distance(df.iloc[5,7],df.iloc[5,8],df.iloc[18,7],df.iloc[18,8]) #this function can be used to extract time and distance -> to work on it more
     travel_matrix = pd.read_excel(excel_file_path,sheet_name="Sheet2",usecols="A:U",nrows=22)
     sys = system_wide_sim(travel_matrix)
+    sys.to_excel("tester.xlsx",index=False) #adjust file path here
