@@ -108,6 +108,7 @@ def distance_between_nodes(node1,node2,fuel_stat_loc_df,service_dir_df,driving_t
                     for index, coord in enumerate(combined_coord.to_numpy(),start=1):
                         params[f"vwp.{index}"] = coord
                     params[f"wp.{index+1}"] = end_loc
+                    params["optimizeWaypoints"] = "true"
                 else:
                     params["wp.1"] = end_loc
         
@@ -119,6 +120,7 @@ def distance_between_nodes(node1,node2,fuel_stat_loc_df,service_dir_df,driving_t
                     for index, coord in enumerate(combined_coord.to_numpy(), start=1):
                         params[f"vwp.{index}"] = coord
                     params[f"wp.{index+1}"] = end_loc
+                    params["optimizeWaypoints"] = "true"
                 else:
                     params["wp.1"] = end_loc
         else:
@@ -142,5 +144,5 @@ if __name__ == "__main__":
     st = time.time()
     travel_matrix_df = load_dfs(travel_matrix_excel_file_path)
     create_distance_matrix(travel_matrix_excel_file_path)
-    print(f'{(time.time()-st):.2f/60}')
+    print(f'{(time.time()-st):.2f}')
 #%%
