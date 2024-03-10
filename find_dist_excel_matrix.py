@@ -1,0 +1,148 @@
+#%%
+import numpy as np
+import pandas as pd
+import requests
+import time
+
+# AN Bing Maps API key
+bing_maps_api_key = "AkG58SoxLujRYGeH30ePGMT_9gz3aQ6UCiGBn3EeZ5BO6d-2OYlos9L1yH0gbopC"
+travel_matrix_excel_file_path = r'Travel Matrix.xlsx'
+#%%
+def load_dfs(excel_file_path):
+    '''Returns distance matrix Excel as a dictionary with keys as the names of individual sheets and values as dataframes of the respective keys'''
+    main_excel = pd.read_excel(excel_file_path,sheet_name=None)
+    return main_excel
+#%%
+def find_location(row):
+    base_url = "http://dev.virtualearth.net/REST/v1/Locations"
+    params = {
+        "key": bing_maps_api_key,
+        "countryRegion": row["Country Code"],
+        "postalCode": row["Postal Code"],
+    }
+    response = requests.get(base_url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data["resourceSets"][0]["estimatedTotal"] > 0:
+            location = data["resourceSets"][0]["resources"][0]["point"]["coordinates"]
+            latitude, longitude = location
+            row["Latitude"], row["Longitude"] = latitude, longitude # Return latitude and longitude
+            return row
+        else:
+            return row
+    else:
+        return row
+#%%
+def find_coord_all_addr(excel_file_path):
+    '''Use to find coordinates only when new address is added to Addresses sheet in Travel Matrix Excel. Overwrites the excel sheet in Addresses to add coordinates for each node'''
+    try:
+        with pd.ExcelWriter(excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
+            addr_df = pd.read_excel(writer,sheet_name="Addresses")
+            addr_df = addr_df.apply(find_location, axis=1)
+            addr_df.to_excel(writer,sheet_name="Addresses",index=False)
+    except PermissionError:
+        print(f"Error: Permission denied")
+        exit()
+    except Exception as e:
+        print(f"Error: {e}")
+        exit()
+    return None
+
+#%%
+def create_distance_matrix(travel_matrix_excel_file_path):
+    '''Create one time static distance matrix Use only when new address/new node is added to Addresses sheet in Travel Matrix Excel file. Overwrites the excel sheet and adds a new sheet named distance matrix. Does not return anything.'''
+    with pd.ExcelWriter(travel_matrix_excel_file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
+        fuel_stat_loc_df, service_dir_df = pd.read_excel(writer,sheet_name="Addresses"), pd.read_excel(writer,sheet_name="Service-Directions")
+        service_dir_df = service_dir_df.set_index(service_dir_df.iloc[:,0]).iloc[:,1:]
+        fuel_stat_loc_df = fuel_stat_loc_df.set_index(fuel_stat_loc_df.iloc[:,0])
+        total_nodes = len(service_dir_df.columns.values)
+        matrix_distances = np.zeros((total_nodes,total_nodes))
+        matrix_driv_times = np.zeros((total_nodes,total_nodes))
+        find_driving_time = 1 # Used to create time matrix based on static distances
+        for origin_node in service_dir_df.columns.values:
+            for dest_node in service_dir_df.columns.values:
+                dist,driv_time = distance_between_nodes(origin_node,dest_node,fuel_stat_loc_df,service_dir_df,find_driving_time) 
+                matrix_distances[origin_node-1,dest_node-1] = dist
+                matrix_driv_times[origin_node-1,dest_node-1] = driv_time
+            
+        pd.DataFrame(matrix_distances,index = fuel_stat_loc_df["Node"].values,columns = fuel_stat_loc_df["Node"].values).to_excel(writer,sheet_name="Distance-Matrix",index=True)
+        pd.DataFrame(matrix_driv_times,index = fuel_stat_loc_df["Node"].values,columns = fuel_stat_loc_df["Node"].values).to_excel(writer,sheet_name="Driving-Time-Matrix",index=True)
+
+    return None
+
+#%%
+def distance_between_nodes(node1,node2,fuel_stat_loc_df,service_dir_df,driving_time=None):
+    '''
+    REPLACES the following function: find_travel_time_distance(start_lat,start_long,end_lat,end_long)
+
+    Used to find distance between any 2 nodes using Hwy 401 waypoints. It will determine whether travel is eastbound or westbound. It will find compatible fuel stations between origin and destination coordinates. Coordinates of any compatible fuel stations will be waypoints for Bing Maps API truck route to use highway 401 as preference when highway 401 is available (using routeAttributes).
+
+    It will RETURN distance as FLOAT in Kilometers, time as integer in Seconds if driving_time is not None'''
+    start_loc = str(fuel_stat_loc_df.at[node1,'Latitude']) + ',' + str(fuel_stat_loc_df.at[node1,'Longitude'])
+    end_loc = str(fuel_stat_loc_df.at[node2,'Latitude']) + ',' + str(fuel_stat_loc_df.at[node2,'Longitude'])
+    if start_loc==end_loc or node1==node2:
+        travel_distance = 0
+        travel_time = 0
+        if driving_time:
+            return travel_distance,travel_time
+        else:
+            return travel_distance
+    else:
+    
+        newurl = f'https://dev.virtualearth.net/REST/v1/Routes/Truck'
+        params = {
+        "key": bing_maps_api_key,
+        "wp.0": start_loc,
+        "distanceUnit": "km"
+    }
+        
+        # Logic for selecting and filtering waypoints for highway 401
+        # &waypoint.1=Seattle&viaWaypoint.2=Kirkland&waypoint.3=Redmond [viaWaypoint]
+        if node1 >=13 and node2 >=13:
+            travelDirection = service_dir_df.at[node1,node2]
+            if travelDirection == 'W':
+                # Filter for fuel stations that service westbound and between node 1 and node 2
+                compatible_stations_df = fuel_stat_loc_df.loc[(fuel_stat_loc_df['Longitude'] <= fuel_stat_loc_df.at[node1,'Longitude']) & (fuel_stat_loc_df['Longitude'] >= fuel_stat_loc_df.at[node2,'Longitude']) & (fuel_stat_loc_df['Service'] == travelDirection)]
+                if len(compatible_stations_df)>0:
+                    combined_coord = compatible_stations_df['Latitude'].astype(str)+','+compatible_stations_df['Longitude'].astype(str)
+                    for index, coord in enumerate(combined_coord.to_numpy(),start=1):
+                        params[f"vwp.{index}"] = coord
+                    params[f"wp.{index+1}"] = end_loc
+                    params["optimizeWaypoints"] = "true"
+                else:
+                    params["wp.1"] = end_loc
+        
+            else: # travelDirection is E (East)
+                # Filter for fuel stations that service eastbound and between node 1 and node 2
+                compatible_stations_df = fuel_stat_loc_df.loc[(fuel_stat_loc_df['Longitude'] >= fuel_stat_loc_df.at[node1,'Longitude']) & (fuel_stat_loc_df['Longitude'] <= fuel_stat_loc_df.at[node2,'Longitude']) & (fuel_stat_loc_df['Service'] == travelDirection)]
+                if len(compatible_stations_df)>0:
+                    combined_coord = compatible_stations_df['Latitude'].astype(str)+','+compatible_stations_df['Longitude'].astype(str)
+                    for index, coord in enumerate(combined_coord.to_numpy(), start=1):
+                        params[f"vwp.{index}"] = coord
+                    params[f"wp.{index+1}"] = end_loc
+                    params["optimizeWaypoints"] = "true"
+                else:
+                    params["wp.1"] = end_loc
+        else:
+            params["wp.1"] = end_loc
+                        
+        response = requests.get(newurl, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            travel_distance = data['resourceSets'][0]['resources'][0]['travelDistance']
+            travel_time = data['resourceSets'][0]['resources'][0]['travelDurationTraffic']
+        else:
+            travel_distance = 'Error'
+            travel_time = 'Error'
+
+        if driving_time:
+            return travel_distance,travel_time
+        else:
+            return travel_distance
+#%%
+if __name__ == "__main__":
+    st = time.time()
+    travel_matrix_df = load_dfs(travel_matrix_excel_file_path)
+    create_distance_matrix(travel_matrix_excel_file_path)
+    print(f'{(time.time()-st):.2f}')
+#%%
