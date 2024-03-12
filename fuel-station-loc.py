@@ -54,7 +54,7 @@ def new_node(ro,tm,dm,tim,stn): #ro is the truck info, tm is the travel matrix, 
         ro["Travel Time"] = float(ro["Travel Time"]) + float(ro["Remaining Time"])
         ro["Travel Range"] = float(ro["Travel Range"]) + dm.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Intermittent Stop"]))]
         fuel_needed = 60 - fuel_left
-        print(fuel_needed)
+        #print(fuel_needed)
         station = int(float(ro["Intermittent Stop"])) - 1
         stn[station] -= fuel_needed
         ro["Remaining Fuel"] = 60
@@ -74,13 +74,17 @@ def new_node(ro,tm,dm,tim,stn): #ro is the truck info, tm is the travel matrix, 
                         interp_rnge = np.append(interp_rnge, rem_rnge)
                 else:
                     interp_rnge = np.append(interp_rnge,9999)
-            try:
-                ro["Intermittent Stop"] = col_ind[(interp_rnge - (700*10)).argmin()] #obtains the intermittent station number
-                ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Intermittent Stop"]))]
-            except:#seems ottawa to montreal route is having issues
-                #print(ro["Starting Node"],ro["Ending Node"],ro["Remaining Range"])
-                #print("failed to find a suitable station, the range is enough to go from ottawa to montreal and back")
-                ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]        
+            if len(interp_rnge[interp_rnge<9000]) != 0:
+                try:
+                    ro["Intermittent Stop"] = col_ind[(interp_rnge - (700*10)).argmin()] #obtains the intermittent station number
+                    ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Intermittent Stop"]))]
+                except:#seems ottawa to montreal route is having issues
+                    #print(ro["Starting Node"],ro["Ending Node"],ro["Remaining Range"])
+                    #print("failed to find a suitable station, the range is enough to go from ottawa to montreal and back")
+                    ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]
+            else:
+                ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]
+                ro["Intermittent Stop"] = 0
         else:
             ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]
             ro["Intermittent Stop"] = 0
@@ -92,11 +96,11 @@ def new_node(ro,tm,dm,tim,stn): #ro is the truck info, tm is the travel matrix, 
         ro["Remaining Fuel"] = float(ro["Remaining Fuel"]) - dm.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]/700*60
         ro['Starting Node'] = int(float(ro['Ending Node']))
         end_node = np.random.choice(dest_node, p = probabilities)
-        time_check = 45000 - float(ro["Travel Time"]) - tim.iloc[int(float(ro["Starting Node"]))-1,end_node]
+        time_check = 43200 - float(ro["Travel Time"]) - tim.iloc[int(float(ro["Starting Node"]))-1,end_node]
         counter = 0
         while float(end_node) == float(ro["Starting Node"]) and (counter < 10 or time_check < 0):
             end_node = np.random.choice(dest_node, p = probabilities)
-            time_check = 45000 - float(ro["Travel Time"]) - tim.iloc[int(float(ro["Starting Node"]))-1,end_node] #13h max
+            time_check = 36000 - float(ro["Travel Time"]) - tim.iloc[int(float(ro["Starting Node"]))-1,end_node] #13h max -> 10h right now
             counter += 1
         if counter > 9 or time_check < 0: #end the truck sim if more than 10 fails
             ro["Remaining Time"] = 1000000
@@ -117,13 +121,17 @@ def new_node(ro,tm,dm,tim,stn): #ro is the truck info, tm is the travel matrix, 
                         interp_rnge = np.append(interp_rnge, rem_rnge)
                 else:
                     interp_rnge = np.append(interp_rnge,9999)
-            try:
-                ro["Intermittent Stop"] = col_ind[(interp_rnge - (700*10)).argmin()] #obtains the intermittent station number
-                ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Intermittent Stop"]))]
-            except:#seems ottawa to montreal route is having issues
-                #print(ro["Starting Node"],ro["Ending Node"],ro["Remaining Range"])
-                #print("failed to find a suitable station, the range is enough to go from ottawa to montreal and back")
-                ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]        
+            if len(interp_rnge[interp_rnge<9000]) != 0:
+                try:
+                    ro["Intermittent Stop"] = col_ind[(interp_rnge - (700*10)).argmin()] #obtains the intermittent station number
+                    ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Intermittent Stop"]))]
+                except:#seems ottawa to montreal route is having issues
+                    #print(ro["Starting Node"],ro["Ending Node"],ro["Remaining Range"])
+                    #print("failed to find a suitable station, the range is enough to go from ottawa to montreal and back")
+                    ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]
+            else:
+                ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]
+                ro["Intermittent Stop"] = 0      
         else:
             ro["Remaining Time"] = tim.iloc[int(float(ro["Starting Node"]))-1,int(float(ro["Ending Node"]))]  
     return ro,stn
@@ -169,13 +177,16 @@ def system_wide_sim(tm,dm,tim):
                         interp_rnge = np.append(interp_rnge, rem_rnge)
                 else:
                     interp_rnge = np.append(interp_rnge,9999)
-            try:
-                interp_stn = col_ind[(interp_rnge - (700*10)).argmin()] #obtains the intermittent station number
-                rem_time[i-1,0] = tim.iloc[int(start_dest[i-1,0]-1),interp_stn]
-            except:#seems ottawa to montreal route is having issues
-                print(start_dest[i-1,0],end_dest[i-1,0],rnge[i-1,0])
-                print("failed to find a suitable station, the range is enough to go from ottawa to montreal and back")
-                rem_time[i-1,0] = tim.iloc[int(start_dest[i-1,0]-1),int(end_dest[i-1,0])]          
+            if len(interp_rnge[interp_rnge<9000]) != 0:
+                try:
+                    interp_stn = col_ind[(interp_rnge - (700*10)).argmin()] #obtains the intermittent station number
+                    rem_time[i-1,0] = tim.iloc[int(start_dest[i-1,0]-1),interp_stn]
+                except:#seems ottawa to montreal route is having issues
+                    print(start_dest[i-1,0],end_dest[i-1,0],rnge[i-1,0])
+                    print("failed to find a suitable station, the range is enough to go from ottawa to montreal and back")
+                    rem_time[i-1,0] = tim.iloc[int(start_dest[i-1,0]-1),int(end_dest[i-1,0])]
+            else:
+                rem_time[i-1,0] = tim.iloc[int(start_dest[i-1,0]-1),int(end_dest[i-1,0])]  
         else:
             rem_time[i-1,0] = tim.iloc[int(start_dest[i-1,0]-1),int(end_dest[i-1,0])]
         intermitten[i-1] = interp_stn
@@ -257,5 +268,8 @@ issues:
 >> ottawa to montreal bck to ontario requires at least 300km range -> start seraching for fuel stations at 45% capacity and refuel near 10%
 >> interp station finding need to limit the locations on the way -> distance to interp < distance to dest
     >> if barrie is the destination -> omit port hope for eastbound and cambridge for westbound traffic
-**Traffic from Barrie to Toronto tried to take Tilbury as intermitten
+>>Traffic from Barrie to Toronto tried to take Tilbury as intermitten
+>>Expected issue with Toronto -> Cambridge route since no OnRoute in between
+>>Expected issue with Barrie -> Cambridge since no OnRoute in between
+>>Expected issue with Detroit -> Windsor route since no OnRoute in between
 '''
