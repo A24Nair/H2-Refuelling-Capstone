@@ -279,7 +279,7 @@ if __name__ == "__main__":
         sim[0].to_excel(os.path.join(paths[1],f"{identifier} simulation.xlsx"),index=False) #adjust file path here
         sim[1].to_excel(os.path.join(paths[2],f"{identifier} tester_updated.xlsx"),index=False) #adjust file path here
 
-    summary_report(paths[1:])
+    # summary_report(paths[1:])
     # sys = system_wide_sim(travel_matrix,distance_matrix,time_matrix)
     # sys.to_excel("Initial-Route-Conditions.xlsx",index=False) #adjust file path here
     # sim = sim_by_time(sys,travel_matrix,distance_matrix,time_matrix)
