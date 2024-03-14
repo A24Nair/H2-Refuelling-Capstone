@@ -225,7 +225,8 @@ def save_sim_files():
 def summary_report(paths):
     # paths[0] = simulation data - time
     # paths[1] = final conditions for each truck 
-    # -------------------------Sheet 1 - all simulations
+
+    # -------------------------Summary 1 - trucks ----------------------
     # Average distance driven by trucks
     # Max distance driven by trucks
     # Minimum distance driven by trucks
@@ -233,28 +234,29 @@ def summary_report(paths):
     # Max distance driven by trucks
     # Minimum distance driven by trucks
     # Average number of refuelling stops
-    avg_dist = 0
-    max_dist = 0
-    min_dist = 0
-    avg_time = 0
-    max_time = 0
-    min_time = 0
-    count_refueling_stops = 0
+    truck_dist = []
+    truck_time = []
+    truck_count_refueling_stops = []
 
-    final_conds={}
-    fuel_station_results={}
+    for file_num,file in enumerate(os.listdir(paths[1])): # Lists all files in the folder and iterates over all
+        if file.endswith('.xlsx'): # Check if file is excel file
+            file_path = os.path.join(paths[1], file)
+            df = pd.read_excel(file_path)
+            truck_time.append(df.loc[:149,"Travel Time"].values)
+            truck_dist.append(df.loc[:149,"Travel Range"].values)
+            truck_count_refueling_stops.append(df.loc[:151,"Refuelling Stops"].values)
+    simulations = file_num+1
+    truck_dist = [element for row in truck_dist for element in row] # Flatten
+    truck_time = [element for row in truck_time for element in row]
+    truck_count_refueling_stops = [element for row in truck_count_refueling_stops for element in row]
+    max_dist, min_dist, avg_dist = max(truck_dist), min(truck_dist), sum(truck_dist)/len(truck_dist)
+    max_time, min_time, avg_time = max(truck_time)/3600, min(truck_time)/3600, sum(truck_time)/(len(truck_time)*3600)
+    avg_stops = sum(truck_count_refueling_stops)/len(truck_count_refueling_stops)
+    avg_daily_hyd_consump = (avg_dist*60/700)*150 # 60kg gives 700km, 150 vehicles
 
-    for folder in paths:
-        for file_num,file in enumerate(os.listdir(paths)):
-            if file.endswith('.xlsx'):
-                file_path = os.path.join(folder, file)
-                df = pd.read_excel(file_path)
-
-        
-        # Read the Excel file into a DataFrame
-        df = pd.read_excel(file_path)
-
-
+    row_labels = ['Average distance travelled','Max. distance','Min. distance','Average travel time (h)','Max. travel time (h)','Min. travel time (h)','Average number of refuelling stops','Max. number of refuelling stops','Avg. daily hydrogen consumption (150 trucks, kg)','Number of simulations run']
+    row_vals = [round(avg_dist), round(max_dist), round(min_dist), round(avg_time, 1), round(max_time, 1), round(min_time, 1), round(avg_stops), round(max(truck_count_refueling_stops)),round(avg_daily_hyd_consump,1),simulations]
+    pd.DataFrame({'Parameter': row_labels, 'Value': row_vals}).to_excel('Truck-Travel-Summary.xlsx',index=False)
     # Sheet 2 - fuel station consumption
     # Rows = fuel stations
     # Total
@@ -269,15 +271,16 @@ if __name__ == "__main__":
     time_matrix = pd.read_excel(excel_file_path,sheet_name="Driving-Time-Matrix",usecols="A:U",nrows=22)
     
     paths = save_sim_files() # Create folders to save files
+    summary_report(paths[1:])
     
-    num_of_simulations = 5
-    for sim_num in range(num_of_simulations):
-        identifier = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-        sys = system_wide_sim(travel_matrix,distance_matrix,time_matrix)
-        sys.to_excel(os.path.join(paths[0],f"{identifier} Initial-Route-Conditions.xlsx"),index=False)
-        sim = sim_by_time(sys,travel_matrix,distance_matrix,time_matrix)
-        sim[0].to_excel(os.path.join(paths[1],f"{identifier} simulation.xlsx"),index=False) #adjust file path here
-        sim[1].to_excel(os.path.join(paths[2],f"{identifier} tester_updated.xlsx"),index=False) #adjust file path here
+    # num_of_simulations = 2
+    # for sim_num in range(num_of_simulations):
+    #     identifier = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    #     sys = system_wide_sim(travel_matrix,distance_matrix,time_matrix)
+    #     sys.to_excel(os.path.join(paths[0],f"{identifier} Initial-Route-Conditions.xlsx"),index=False)
+    #     sim = sim_by_time(sys,travel_matrix,distance_matrix,time_matrix)
+    #     sim[0].to_excel(os.path.join(paths[1],f"{identifier} simulation.xlsx"),index=False) #adjust file path here
+    #     sim[1].to_excel(os.path.join(paths[2],f"{identifier} tester_updated.xlsx"),index=False) #adjust file path here
 
     # summary_report(paths[1:])
     # sys = system_wide_sim(travel_matrix,distance_matrix,time_matrix)
